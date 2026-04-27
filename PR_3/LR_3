@@ -1,0 +1,74 @@
+import numpy as np
+import time
+import os
+
+cython_code = """
+import numpy as np
+cimport cython
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def calc_energy_cython(double[:, :] matrix, double[:] tariff):
+    cdef int rows = matrix.shape[0]
+    cdef int cols = matrix.shape[1]
+
+    cdef double[:] result = np.zeros(rows, dtype=np.float64)
+    cdef int i, j
+
+    for i in range(rows):
+        for j in range(cols):
+            result[i] += matrix[i, j] * tariff[j]
+
+    return np.asarray(result)
+"""
+
+with open("cython_energy.pyx", "w", encoding="utf-8") as f:
+    f.write(cython_code)
+
+import pyximport
+
+pyximport.install(setup_args={"include_dirs": np.get_include()}, reload_support=True)
+import cython_energy
+
+
+def calc_energy_python(matrix, tariff):
+    rows, cols = matrix.shape
+    result = np.zeros(rows)
+    for i in range(rows):
+        for j in range(cols):
+            result[i] += matrix[i, j] * tariff[j]
+    return result
+
+
+def run_experiment():
+    consumers = 10000
+    hours = 720
+
+    print(f"Генерація даних: {consumers} споживачів, {hours} годин (розподілена енергомережа)...")
+    consumption_matrix = np.random.uniform(0.1, 5.0, (consumers, hours))
+    tariff_array = np.random.uniform(1.5, 4.5, hours)
+
+    print("\n--- РОЗРАХУНОК PYTHON ---")
+    start_py = time.time()
+    res_py = calc_energy_python(consumption_matrix, tariff_array)
+    time_py = time.time() - start_py
+    print(f"Час виконання (Python): {time_py:.4f} секунд")
+
+    print("\n--- РОЗРАХУНОК CYTHON ---")
+    start_cy = time.time()
+    res_cy = cython_energy.calc_energy_cython(consumption_matrix, tariff_array)
+    time_cy = time.time() - start_cy
+    print(f"Час виконання (Cython): {time_cy:.4f} секунд")
+
+    print("\n--- ПІДСУМКИ ТА ОЦІНКА ЕКОНОМІЇ ---")
+    is_correct = np.allclose(res_py, res_cy)
+    print(f"Математична точність результатів збігається: {is_correct}")
+
+    if time_cy > 0:
+        speedup = time_py / time_cy
+        print(f"Прискорення алгоритму: Cython швидший у {speedup:.1f} разів!")
+        print(f"Економія часу на цьому обсязі даних: {time_py - time_cy:.4f} секунд.")
+
+
+if __name__ == "__main__":
+    run_experiment()
