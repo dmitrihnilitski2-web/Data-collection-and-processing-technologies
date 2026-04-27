@@ -1,0 +1,64 @@
+import pandas as pd
+import numpy as np
+import time
+
+def generate_data(n=2_000_000):
+    np.random.seed(42)
+    cities = ['  Київ', 'КИЇВ  ', 'київ', 'Львів', '  львів  ', 'Одеса', ' ОДЕСА']
+    products = ['  Ноутбук', 'НОУТБУК', 'Смартфон  ', ' смартфон', 'Планшет', 'планшет ']
+
+    print(f"Генерація датасету на {n} рядків...")
+    df = pd.DataFrame({
+        'city': np.random.choice(cities, n),
+        'product': np.random.choice(products, n),
+        'sales': np.random.uniform(100, 2000, n)
+    })
+    return df
+
+df = generate_data()
+print("Датасет готовий!\n")
+
+print("--- ДО ОЧИСТКИ ТА ОПТИМІЗАЦІЇ (Тип object) ---")
+
+memory_before = df.memory_usage(deep=True)
+city_mem_before = memory_before['city'] / (1024 * 1024)
+product_mem_before = memory_before['product'] / (1024 * 1024)
+
+print(f"Пам'ять колонки 'city': {city_mem_before:.2f} MB")
+print(f"Пам'ять колонки 'product': {product_mem_before:.2f} MB")
+
+start_time = time.time()
+df.groupby('city')['sales'].mean()
+time_before = time.time() - start_time
+print(f"Час виконання groupby: {time_before:.4f} секунд\n")
+
+print("--- ПРОЦЕС ОЧИСТКИ ТА КОНВЕРТАЦІЇ ---")
+df['city'] = df['city'].str.strip().str.lower()
+df['product'] = df['product'].str.strip().str.lower()
+
+df['city'] = df['city'].astype('category')
+df['product'] = df['product'].astype('category')
+print("Очистку завершено, тексти перетворено на 'category'.\n")
+
+print("--- ПІСЛЯ ОЧИСТКИ ТА ОПТИМІЗАЦІЇ (Тип category) ---")
+
+memory_after = df.memory_usage(deep=True)
+city_mem_after = memory_after['city'] / (1024 * 1024)
+product_mem_after = memory_after['product'] / (1024 * 1024)
+
+print(f"Пам'ять колонки 'city': {city_mem_after:.2f} MB")
+print(f"Пам'ять колонки 'product': {product_mem_after:.2f} MB")
+
+start_time = time.time()
+df.groupby('city')['sales'].mean()
+time_after = time.time() - start_time
+print(f"Час виконання groupby: {time_after:.4f} секунд\n")
+
+print("--- ПІДСУМКОВЕ ПОРІВНЯННЯ ---")
+print(f"Економія пам'яті (city): у {city_mem_before / city_mem_after:.1f} разів!")
+print(f"Економія пам'яті (product): у {product_mem_before / product_mem_after:.1f} разів!")
+
+if time_after < time_before:
+    print(f"Прискорення groupby: у {time_before / time_after:.1f} разів швидше!")
+else:
+    print("Час groupby майже не змінився (швидкість залежить від потужності процесора).")
