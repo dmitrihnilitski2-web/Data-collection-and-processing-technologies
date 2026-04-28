@@ -1,0 +1,72 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.signal import savgol_filter
+import os
+import sys
+
+ACCEL_FILE = "accel_data.csv"
+GYRO_FILE = "gyro_data.csv"
+
+if not os.path.exists(ACCEL_FILE) or not os.path.exists(GYRO_FILE):
+    print("ПОМИЛКА: Не знайдено файли даних!")
+    print("Переконайся, що ти перейменував файли на accel_data.csv та gyro_data.csv і поклав їх поруч зі скриптом.")
+    sys.exit()
+
+df_accel = pd.read_csv(ACCEL_FILE)
+df_gyro = pd.read_csv(GYRO_FILE)
+
+df_accel['Abs_Accel'] = np.sqrt(df_accel['Acceleration x (m/s²)']**2 +
+                                df_accel['Acceleration y (m/s²)']**2 +
+                                df_accel['Acceleration z (m/s²)']**2)
+
+df_accel['Linear_Accel'] = df_accel['Abs_Accel'] - 9.81
+
+window_len_accel = min(51, len(df_accel) // 2 * 2 + 1)
+df_accel['Accel_Smooth'] = savgol_filter(df_accel['Linear_Accel'], window_length=window_len_accel, polyorder=3)
+
+df_accel['dt'] = df_accel['Time (s)'].diff().fillna(0)
+df_accel['Speed_kmh'] = (df_accel['Accel_Smooth'] * df_accel['dt']).cumsum() * 3.6
+
+ACCEL_THRESHOLD = 2.0
+accel_anomalies = df_accel[df_accel['Accel_Smooth'].abs() > ACCEL_THRESHOLD]
+
+window_len_gyro = min(51, len(df_gyro) // 2 * 2 + 1)
+df_gyro['Gyro_Smooth'] = savgol_filter(df_gyro['Absolute (rad/s)'], window_length=window_len_gyro, polyorder=3)
+
+GYRO_THRESHOLD = 1.0
+gyro_anomalies = df_gyro[df_gyro['Gyro_Smooth'] > GYRO_THRESHOLD]
+
+fig, axes = plt.subplots(3, 1, figsize=(14, 12))
+
+axes[0].plot(df_accel['Time (s)'], df_accel['Linear_Accel'], color='lightgray', label='Сирі дані (Шум)')
+axes[0].plot(df_accel['Time (s)'], df_accel['Accel_Smooth'], color='blue', linewidth=2, label='Згладжене прискорення')
+axes[0].scatter(accel_anomalies['Time (s)'], accel_anomalies['Accel_Smooth'], color='red', zorder=5, label=f'Різке гальмування/газ (> {ACCEL_THRESHOLD} м/с²)')
+axes[0].axhline(0, color='black', linewidth=1)
+axes[0].axhline(ACCEL_THRESHOLD, color='red', linestyle='--', alpha=0.5)
+axes[0].axhline(-ACCEL_THRESHOLD, color='red', linestyle='--', alpha=0.5)
+axes[0].set_title('Акселерометр: Оцінка поздовжньої та поперечної плавності')
+axes[0].set_ylabel('Прискорення (м/с²)')
+axes[0].legend(loc='upper right')
+axes[0].grid(True)
+
+axes[1].plot(df_gyro['Time (s)'], df_gyro['Absolute (rad/s)'], color='lightgray', label='Сирі дані обертання')
+axes[1].plot(df_gyro['Time (s)'], df_gyro['Gyro_Smooth'], color='purple', linewidth=2, label='Згладжене обертання')
+axes[1].scatter(gyro_anomalies['Time (s)'], gyro_anomalies['Gyro_Smooth'], color='red', zorder=5, label=f'Різкий маневр (> {GYRO_THRESHOLD} рад/с)')
+axes[1].axhline(GYRO_THRESHOLD, color='red', linestyle='--', alpha=0.5)
+axes[1].set_title('Гіроскоп: Виявлення різких поворотів та перестроювань')
+axes[1].set_ylabel('Кутова швидкість (рад/с)')
+axes[1].legend(loc='upper right')
+axes[1].grid(True)
+
+axes[2].plot(df_accel['Time (s)'], df_accel['Speed_kmh'], color='green', linewidth=2, label='Розрахункова швидкість (інтеграл прискорення)')
+axes[2].set_title('Динаміка зміни швидкості (з урахуванням сенсорного дрейфу)')
+axes[2].set_xlabel('Час експерименту (секунди)')
+axes[2].set_ylabel('Швидкість (км/год)')
+axes[2].legend(loc='upper left')
+axes[2].grid(True)
+
+plt.tight_layout()
+plt.show()
+
+print(f"Аналіз завершено. Знайдено аномалій прискорення: {len(accel_anomalies)}, різких маневрів: {len(gyro_anomalies)}")
