@@ -1,0 +1,48 @@
+import pandas as pd
+import dask.dataframe as dd
+import numpy as np
+import time
+import os
+
+filename = "big_data_example.csv"
+num_rows = 5_000_000
+
+if not os.path.exists(filename):
+    print(f"Генерація файлу {filename} ({num_rows} рядків)... Це займе близько хвилини.")
+    df_gen = pd.DataFrame({
+        "id": np.arange(1, num_rows + 1),
+        "category": np.random.choice(["Electronics", "Clothing", "Food", "Books", "Toys"], num_rows),
+        "amount": np.random.uniform(10.0, 1000.0, num_rows)
+    })
+    df_gen.to_csv(filename, index=False)
+    file_size_mb = os.path.getsize(filename) / (1024 * 1024)
+    print(f"Файл успішно згенеровано! Розмір: {file_size_mb:.2f} MB\n")
+else:
+    print(f"Файл {filename} вже існує. Починаємо обробку...\n")
+
+print("--- РОЗРАХУНОК PANDAS ---")
+start_pd = time.time()
+
+df_pd = pd.read_csv(filename)
+result_pd = df_pd.groupby("category")["amount"].mean()
+
+time_pd = time.time() - start_pd
+print(result_pd)
+print(f"Час виконання (Pandas): {time_pd:.4f} секунд\n")
+
+print("--- РОЗРАХУНОК DASK ---")
+start_dask = time.time()
+
+df_dask = dd.read_csv(filename)
+result_dask = df_dask.groupby("category")["amount"].mean().compute()
+
+time_dask = time.time() - start_dask
+print(result_dask)
+print(f"Час виконання (Dask): {time_dask:.4f} секунд\n")
+
+print("--- ВИСНОВКИ ---")
+if time_pd < time_dask:
+    print("Pandas відпрацював швидше. Це очікувано для файлів, які повністю поміщаються в RAM.")
+    print("Dask витратив додатковий час на створення графу обчислень та розподіл задач (overhead).")
+else:
+    print(f"Dask відпрацював швидше у {time_pd / time_dask:.2f} разів!")
