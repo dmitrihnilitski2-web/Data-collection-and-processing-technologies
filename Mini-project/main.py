@@ -67,19 +67,13 @@ def simulate_step():
         "savings": info["savings"]
     }
 
-
-# ВАЖЛИВО: Цей рядок має бути в самому кінці (після API),
-# щоб FastAPI спочатку перевіряв /api/..., а потім віддавав файли сайту
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
 
 if __name__ == "__main__":
     def open_browser():
-        time.sleep(1.5)  # Чекаємо півтори секунди, поки підніметься сервер
+        time.sleep(1.5)
         webbrowser.open("http://127.0.0.1:8000")
 
-
-    # Запускаємо відкриття браузера в окремому потоці
     threading.Thread(target=open_browser).start()
 
-    # Запускаємо сам сервер (reload=False, бо ми запускаємо напряму)
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=False)
