@@ -3,7 +3,7 @@ import numpy as np
 class BatteryEnvironment:
     def __init__(self):
         self.capacity = 10.0
-        self.max_rw = 2.0  # Amount of energy charged/discharged per step
+        self.max_rw = 2.0 
         self.soc = 0.0
         self.hour = 0
         
@@ -13,13 +13,13 @@ class BatteryEnvironment:
         return self.get_state()
         
     def _get_tariff_level(self, hour):
-        # 0: Cheap (23:00 - 07:00), 1: Mid (07:00-17:00, 22:00-23:00), 2: Peak (17:00 - 22:00)
+
         if hour >= 23 or hour < 7:
-            return 0  # 1.0 ₴ - Cheap
+            return 0 
         elif 17 <= hour < 22:
-            return 2  # 5.0 ₴ - Peak
+            return 2  
         else:
-            return 1  # 2.5 ₴ - Mid
+            return 1 
 
     def _get_tariff_price(self, level):
         if level == 0: return 1.0
@@ -32,7 +32,7 @@ class BatteryEnvironment:
         return (self.hour, tariff_level, soc_discrete)
 
     def step(self, action):
-        # Actions: 0 = Hold, 1 = Charge, 2 = Discharge
+
         reward = 0
         current_hour = self.hour
         tariff_level = self._get_tariff_level(current_hour)
@@ -40,36 +40,35 @@ class BatteryEnvironment:
         soc_change = self.max_rw
         savings = 0.0
         
-        if action == 1:  # Charge
+        if action == 1: 
             if self.soc + soc_change > self.capacity:
-                reward = -100  # Strict penalty for overcharging
+                reward = -100
             else:
                 self.soc += soc_change
                 if tariff_level == 0:
-                    reward = 10   # Big plus for charging at cheap
+                    reward = 10 
                 elif tariff_level == 1:
-                    reward = -10  # Penalty for charging at mid
+                    reward = -10
                 elif tariff_level == 2:
-                    reward = -50  # Severe penalty for charging at peak
+                    reward = -50 
                 savings = - (soc_change * tariff_price)
                     
-        elif action == 2:  # Discharge
+        elif action == 2:
             if self.soc - soc_change < 0:
-                reward = -100  # Strict penalty for overdischarging
+                reward = -100
             else:
                 self.soc -= soc_change
                 if tariff_level == 0:
-                    reward = -50  # Severe penalty for discharging at cheap
+                    reward = -50 
                 elif tariff_level == 1:
-                    reward = -10  # Penalty for discharging at mid
+                    reward = -10
                 elif tariff_level == 2:
-                    reward = 10   # Big plus for discharging at peak
+                    reward = 10
                 savings = (soc_change * tariff_price)
                     
-        elif action == 0:  # Hold
-            reward = -0.1  # Small penalty to avoid "sleeping" forever
-            
-        # Advance time
+        elif action == 0: 
+            reward = -0.1 
+
         self.hour = (self.hour + 1) % 24
         
         done = False
