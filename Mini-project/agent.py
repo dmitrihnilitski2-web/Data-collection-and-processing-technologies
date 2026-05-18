@@ -14,7 +14,6 @@ class QLearningAgent:
         
     def get_q_values(self, state):
         if state not in self.q_table:
-            # Initialize with zeros
             self.q_table[state] = np.zeros(3)
         return self.q_table[state]
         
@@ -24,7 +23,6 @@ class QLearningAgent:
         else:
             q_values = self.get_q_values(state)
             max_q = np.max(q_values)
-            # Find all actions with max Q-value to break ties randomly
             best_actions = [a for a in range(3) if q_values[a] == max_q]
             return random.choice(best_actions)
             
@@ -33,11 +31,10 @@ class QLearningAgent:
         next_q_values = self.get_q_values(next_state)
         
         best_next_q = np.max(next_q_values)
-        
-        # Q-Learning update rule
+
         q_values[action] = q_values[action] + self.alpha * (reward + self.gamma * best_next_q - q_values[action])
         
-    def train(self, episodes=2000, steps_per_episode=168): # 168 hours = 7 days
+    def train(self, episodes=2000, steps_per_episode=168):
         for episode in range(episodes):
             state = self.env.reset()
             total_reward = 0
@@ -59,11 +56,10 @@ class QLearningAgent:
 
 if __name__ == "__main__":
     env = BatteryEnvironment()
-    # High gamma (0.99) is CRITICAL to avoid the discounting trap over long wait periods (e.g., waiting 10h to discharge)
     agent = QLearningAgent(env, alpha=0.1, gamma=0.99, epsilon=1.0, epsilon_decay=0.998, min_epsilon=0.01)
     
     print("Starting training...")
-    agent.train(episodes=2000, steps_per_episode=168) # Simulate 7 days per episode
+    agent.train(episodes=2000, steps_per_episode=168)
     print("Training complete.\n")
     
     print("Testing the trained agent for 1 typical day (24 hours):")
@@ -71,7 +67,6 @@ if __name__ == "__main__":
     total_test_reward = 0
     for hour in range(24):
         q_values = agent.get_q_values(state)
-        # Always exploit during testing
         max_q = np.max(q_values)
         best_actions = [a for a in range(3) if q_values[a] == max_q]
         action = random.choice(best_actions)
